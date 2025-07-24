@@ -25,7 +25,7 @@
 
 #include "sd_functions.h"
 #include "stdio.h"
-
+#include <string.h>
 
 /* USER CODE END Includes */
 
@@ -111,11 +111,18 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  const char *writingFolder;
+  char folder_path[64];
+  char fileName[32];
 
+  writingFolder = get_folder_name_and_signal_led(); //Either "Test" or "Flight"
   sd_mount();
   sd_list_files();
-  sd_list_directory_recursive();
-  sd_write_file("HOLA.CSV", "Row,Data\n1,1\n2,2\n3,3\n");
+
+  get_folder_path(folder_path, sizeof(folder_path), writingFolder);
+  get_file_name(fileName, sizeof(fileName), writingFolder, folder_path);
+
+  sd_write_file_with_directory(fileName, "Creado el:,", folder_path);
   sd_unmount();
 
   /* USER CODE END 2 */
@@ -286,6 +293,11 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(CS_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  RCC->AHBENR |= (1<<19); // Activar reloj de Perifericos PC
+
+  GPIOC->MODER |= (1<<2*8); //PC8 como output, led de señal
+  GPIOC->MODER &= ~(3<<2*0); //PC0 como input selección de modo de prueba y vuelo
 
   /* USER CODE END MX_GPIO_Init_2 */
 }

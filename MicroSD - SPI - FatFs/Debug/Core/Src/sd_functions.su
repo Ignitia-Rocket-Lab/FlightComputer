@@ -11,3 +11,9 @@
 ../Core/Src/sd_functions.c:239:9:sd_create_directory	32	static
 ../Core/Src/sd_functions.c:245:6:sd_list_directory_recursive	1008	static
 ../Core/Src/sd_functions.c:277:6:sd_list_files	8	static
+../Core/Src/sd_functions.c:283:7:sd_find_in_directory	888	static
+../Core/Src/sd_functions.c:321:9:sd_write_file_with_directory	296	static
+../Core/Src/sd_functions.c:327:9:sd_file_exists_in_directory	872	static
+../Core/Src/sd_functions.c:360:13:get_folder_name_and_signal_led	16	static
+../Core/Src/sd_functions.c:380:6:get_folder_path	32	static
+../Core/Src/sd_functions.c:389:6:get_file_name	48	static

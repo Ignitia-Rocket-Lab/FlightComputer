@@ -51,4 +51,11 @@ typedef struct CsvRecord {
 // CSV reader (caller defines record array)
 int sd_read_csv(const char *filename, CsvRecord *records, int max_records, int *record_count);
 
+//IGNITIA User Function
+char *sd_find_in_directory(const char *path, const char *target_name, int depth);
+uint8_t sd_write_file_with_directory(const char *filename, const char *text, const char *folder_path);
+uint8_t  sd_file_exists_in_directory(const char *folder, const char *filename);
+const char *get_folder_name_and_signal_led();
+void get_folder_path(char *folder_path, size_t size, const char *writingFolder);
+
 #endif // __SD_FUNCTIONS_H__

@@ -48,7 +48,7 @@ int sd_get_space_kb(void) {
 	fre_sect = fre_clust * pfs->csize;
 	total_kb = tot_sect / 2;
 	free_kb = fre_sect / 2;
-	printf("💾 Total: %lu KB, Free: %lu KB\r\n", total_kb, free_kb);
+	printf("Total: %lu KB, Free: %lu KB\r\n", total_kb, free_kb);
 	return FR_OK;
 }
 
@@ -262,20 +262,140 @@ void sd_list_directory_recursive(const char *path, int depth) {
 
 		if (fno.fattrib & AM_DIR) {
 			if (strcmp(name, ".") && strcmp(name, "..")) {
-				printf("%*s📁 %s\r\n", depth * 2, "", name);
+				printf("%*s ->(Folder) %s\r\n", depth * 2, "", name);
 				char newpath[128];
 				snprintf(newpath, sizeof(newpath), "%s/%s", path, name);
 				sd_list_directory_recursive(newpath, depth + 1);
 			}
 		} else {
-			printf("%*s📄 %s (%lu bytes)\r\n", depth * 2, "", name, (unsigned long)fno.fsize);
+			printf("%*s 	->(Archivo) %s (%lu bytes)\r\n", depth * 2, "", name, (unsigned long)fno.fsize);
 		}
 	}
 	f_closedir(&dir);
 }
 
 void sd_list_files(void) {
-	printf("📂 Files on SD Card:\r\n");
+	printf("->Files on SD Card:\r\n");
 	sd_list_directory_recursive(sd_path, 0);
 	printf("\r\n\r\n");
+}
+
+char* sd_find_in_directory(const char *path, const char *target_name, int depth) {
+	DIR dir;
+	FILINFO fno;
+	char lfn[256];
+	static char found_path[128];  // Ruta que se devuelve si se encuentra
+
+	fno.lfname = lfn;
+	fno.lfsize = sizeof(lfn);
+
+	FRESULT res = f_opendir(&dir, path);
+	if (res != FR_OK) {
+		printf("%*s[ERR] Cannot open: %s\r\n", depth * 2, "", path);
+		return NULL;
+	}
+
+	while (1) {
+		res = f_readdir(&dir, &fno);
+		if (res != FR_OK || fno.fname[0] == 0) break;
+
+		const char *name = (*fno.lfname) ? fno.lfname : fno.fname;
+
+		if (fno.fattrib & AM_DIR) {
+			if (strcmp(name, ".") && strcmp(name, "..")) {
+				if (strcmp(name, target_name) == 0) {
+					snprintf(found_path, sizeof(found_path), "%s/%s", path, name);
+					f_closedir(&dir);
+					return found_path;
+				}
+				// ❌ Elimina recursión para no buscar dentro de subcarpetas
+			}
+		}
+	}
+
+
+	f_closedir(&dir);
+	return NULL;  // Si no se encuentra nada
+}
+
+uint8_t sd_write_file_with_directory(const char *filename, const char *text, const char *folder_path) {
+    char full_path[256];
+    snprintf(full_path, sizeof(full_path), "/%s/%s", folder_path, filename);
+    return sd_write_file(full_path, text);
+}
+
+uint8_t sd_file_exists_in_directory(const char *folder, const char *folder_path) {
+    DIR dir;
+    FILINFO fno;
+    char lfn[256];
+
+    fno.lfname = lfn;
+    fno.lfsize = sizeof(lfn);
+
+    FRESULT res = f_opendir(&dir, folder);
+    if (res != FR_OK) {
+        printf("[ERR] Cannot open directory: %s (Error: %d)\r\n", folder, res);
+        return -1;
+    }
+
+    while (1) {
+        res = f_readdir(&dir, &fno);
+        if (res != FR_OK || fno.fname[0] == 0) break;
+
+        const char *name = (*fno.lfname) ? fno.lfname : fno.fname;
+
+        if (!(fno.fattrib & AM_DIR)) {
+            if (strcmp(name, folder_path) == 0) {
+                f_closedir(&dir);
+                return 1;  // File found
+            }
+        }
+    }
+
+    f_closedir(&dir);
+    return 0;  // File not found
+}
+
+//Output can be either "Test" or "Flight", PC8 led as high for "Test" and low for "Flight"
+const char* get_folder_name_and_signal_led() {
+	  uint8_t read; //variable para la lectura de PC0
+	  const char *writingFolder; //Array para nombre de carpeta en la que se trabajara
+
+	  read = (GPIOC->IDR & (1<<0));	//resultado de estado de PC0
+
+	  //Switch a tierra selecciona modo de vuelo
+	  //Switch a voltaje selecciona modo de vuelo y prende led de señal
+	  if (read == 0) {
+	      GPIOC->ODR &= ~(1 << 8);
+	      writingFolder = "Flight";
+	  } else {
+	      GPIOC->ODR |= (1 << 8);
+	      writingFolder = "Test";
+	  }
+
+	  return writingFolder;
+}
+
+void get_folder_path(char *folder_path, size_t size, const char *writingFolder) {
+    const char *found = sd_find_in_directory("/", writingFolder, 0);
+    if (found) {
+        snprintf(folder_path, size, "%s", found);
+    } else {
+        snprintf(folder_path, size, "/");  // O algún valor por defecto
+    }
+}
+
+void get_file_name(char *fileName, size_t size, const char *writingFolder, const char *folder_path) {
+    uint32_t iteration = 1;
+    uint8_t fileNameGenerated = 0;
+
+    do {
+        snprintf(fileName, size, "%s_%lu.csv", writingFolder, iteration);
+
+        if (sd_file_exists_in_directory(folder_path, fileName) == 0) {
+            fileNameGenerated = 1;  // Archivo no existe, lo puedes usar
+        } else {
+            iteration++;  // Archivo existe, intenta con el siguiente
+        }
+    } while (!fileNameGenerated);
 }
